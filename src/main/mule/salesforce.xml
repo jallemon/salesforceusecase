@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="36fce8b6-9d9a-4d41-9553-52526fac64dd" >
+		<salesforce:config-with-oauth-connection >
+			<salesforce:oauth-authorization-code consumerKey="3MVG9riCAn8HHkYVGHFaJJ0MkZkNyhugCqmp16AKnUFzQb989GBprpUljHqwKty8CRdpoe1Sn1ClunUdwXycs" consumerSecret="BF13DCE9315DD9130616C2E3070BB4F98EAEFD975DCF089C39AD54898A62235F" />
+			<salesforce:oauth-callback-config listenerConfig="HTTP_Listener_config" callbackPath="/oath2callback" authorizePath="/authorize" externalCallbackUrl="http://localhost:8082/oath2callback" />
+		</salesforce:config-with-oauth-connection>
+	</salesforce:sfdc-config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="120d853d-a03a-497c-aa4f-baf7eff4ce5e" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="6e690929-606c-4702-897b-dc35a9704a78" >
+		<file:connection workingDir="C:\Users\2195998\OneDrive - Cognizant\Desktop" />
+	</file:config>
+	<flow name="salesforceFlow" doc:id="fa8c7ba7-6746-4189-a20a-18f53e3be1e5" >
+		<http:listener doc:name="Listener" doc:id="76ae802b-a219-48b7-a957-56e7559840c5" config-ref="HTTP_Listener_config" path="/salesforce"/>
+		<salesforce:query doc:name="Query" doc:id="cd9780ae-f4c8-4095-8d4a-0353716ede10" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[SELECT ID,name from Account]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="1888ec05-7f06-419a-8ad8-12815b2ce205">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="salesforceFlow1" doc:id="e9e4027b-523e-4a18-aa3a-adf85012fa03" >
+		<http:listener doc:name="Listener" doc:id="e880039a-b1d3-4a3d-ba4d-0135262b89b3" config-ref="HTTP_Listener_config" path="/bulkinsertcsv"/>
+		<file:read doc:name="Read" doc:id="88c265a6-cd56-473a-b389-b05bda151d2e" config-ref="File_Config" path="accounts.csv" outputMimeType="application/csv"/>
+		<salesforce:create-job-bulk-api-v2 doc:name="Create job bulk api v 2" doc:id="3718593c-bfff-40a9-ad60-26552008b98e" config-ref="Salesforce_Config" objectType="Account" operation="insert"/>
+		<ee:transform doc:name="Transform Message" doc:id="47c66863-8206-45ca-b9d1-c33ec411a0d5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="salesforceFlow2" doc:id="c9f77e6e-106e-4dcc-a1db-5737b7afbf22" >
+		<http:listener doc:name="Listener" doc:id="2324e26e-78be-4c8b-8c1d-63c0f277f7ef" config-ref="HTTP_Listener_config" path="/upsert"/>
+<logger level="INFO" doc:name="Logger" doc:id="0b8cdf3d-690b-4d71-a65e-766bd6327f5b" />
+		<!-- [STUDIO:"Transform Message AccountDetails"]		<ee:transform doc:name="Transform Message AccountDetails" doc:id="335c5a76-5beb-446b-9184-e3a292f3b73f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+&#45;&#45;-
+ 
+payload map ((item,index) ->
+{
+    Name:item.CUSTOMER_NAME,
+    Account_Number__c:item.CUSTOMER_ID,
+    Phone__c:item.Phone
+})
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform> [STUDIO] -->
+<!-- [STUDIO:"Upsert"]		<salesforce:upsert doc:name="Upsert" doc:id="e8f95691-2148-4840-ac5f-449982333e74" config-ref="Salesforce_Config" objectType="Customer"/> [STUDIO] -->
+<!-- [STUDIO:"Transform Message"]		<ee:transform doc:name="Transform Message" doc:id="dab59270-2e39-48b8-bca8-9c39b9e6fe0a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+payload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform> [STUDIO] -->
+	</flow>
+	<flow name="salesforceFlow3" doc:id="8988231b-3658-496c-a281-95380269a9f7" >
+		<http:listener doc:name="Listener" doc:id="1e3e834d-0e32-45d8-b5dd-c6893b6e99eb" config-ref="HTTP_Listener_config" path="/query"/>
+<!-- [STUDIO:"Query"]		<salesforce:query doc:name="Query" doc:id="2853eefe-6346-4429-8b2d-807357aef7a7" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[Select Name,AccountId,Title,Phone,Email From Contact]]></salesforce:salesforce-query>
+		</salesforce:query> [STUDIO] -->
+		<ee:transform doc:name="Transform Message" doc:id="0af2e5bc-c88a-4bc8-b707-4c52bda90ace" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="94e569a8-d041-4cc4-9f33-b42cba704e6c" />
+	</flow>
+	<flow name="salesforceFlow4" doc:id="1b6dc8d5-14ba-4569-8845-2de0be711c20" >
+		<http:listener doc:name="Listener" doc:id="3a555a15-9970-4ca2-a26f-fdbfafcd4244" config-ref="HTTP_Listener_config" path="/queryall"/>
+		<salesforce:query-all doc:name="Query all" doc:id="4dd569fe-0a84-4d9e-8afa-0632f329e3a0" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[Select Name,AccountId,Title,Phone,Email From Contact]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<ee:transform doc:name="Transform Message" doc:id="f819d554-6850-4d69-a00d-b826c2b0a465" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="9d128208-da1f-4292-9557-3f3738920ae7" />
+	</flow>
+	<flow name="salesforceFlow6" doc:id="c61ebd2e-48e6-403b-abf1-ceb03b9c58ec" >
+		<http:listener doc:name="Listener" doc:id="6338c51e-19ff-40ac-8ddc-80e79a2727cb" config-ref="HTTP_Listener_config" path="/publishtopic"/>
+		<salesforce:publish-topic doc:name="Publish topic" doc:id="99463295-bb27-4f18-8402-36d5d4f5abac" config-ref="Salesforce_Config" topicName="AccountUpdate" query="SELECT Id, Name FROM Account" description="Get All Records For Account Update"/>
+	</flow>
+	<flow name="salesforceFlow5" doc:id="e64255aa-9497-4379-a3a5-bea2df08eb0c" >
+		<salesforce:subscribe-topic-listener doc:name="Subscribe topic listener" doc:id="385798ea-c259-4005-ae38-9a63bda23cd2" config-ref="Salesforce_Config" topic="AccountUpdate"/>
+		<ee:transform doc:name="Transform Message" doc:id="1128d801-6739-4b44-ab85-342b53e52019" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="859a533b-5c60-4a29-8588-9cb05b7bbf6d" message="#[payload]"/>
+	</flow>
+	<flow name="salesforceFlow7" doc:id="8cdfe664-8ff8-4d51-815f-f92f0431241d" >
+		<salesforce:replay-topic-listener doc:name="Replay topic listener" doc:id="ea91de98-bc74-4d26-b115-11b7d2836206" config-ref="Salesforce_Config" topic="AccountUpdate" replayOption="ALL"/>
+		<ee:transform doc:name="Transform Message" doc:id="6d4ff19a-16a4-4d2c-b058-dd96d05286db" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="5bccb8c7-c36a-4019-b646-fee8efc0b834" message="#[payload]"/>
+	</flow>
+	<flow name="salesforceFlow9" doc:id="f03c6071-f6af-4a77-b4aa-2b0f7208e46a" >
+		<http:listener doc:name="Listener" doc:id="df99dc54-d089-44b4-a0c1-c0b5ae74b69e" config-ref="HTTP_Listener_config" path="/publishstreamingchannel" allowedMethods="POST"/>
+		<salesforce:publish-streaming-channel doc:name="Publish streaming channel" doc:id="9197e6b8-885b-4670-8e1e-4ee11360042a" config-ref="Salesforce_Config" channelName="#[payload.channelName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="aa8d1aa6-6b71-4574-af09-9cb4dac1530f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="13d48cf3-0b80-4bd8-9fdc-0e1e48398995" message="#[payload]"/>
+	</flow>
+	<flow name="salesforceFlow8" doc:id="3cdb3b79-0f61-4647-812f-9f8ee5795197" >
+		<http:listener doc:name="Listener" doc:id="7f3a8280-4d08-44e3-b2f8-a7c0909da7d4" config-ref="HTTP_Listener_config" path="/pushevent"/>
+		<ee:transform doc:name="Transform Message" doc:id="c6daa5ec-b78c-4160-9e3d-d931703ab6e2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+{
+"payload": "Broadcast message data ",
+"userIds": []
+}
+]
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:push-generic-event doc:name="Push generic event" doc:id="135368a9-8101-4818-9194-23528b23d667" config-ref="Salesforce_Config" channelId="0M68c000000D9B0CAK"/>
+		<logger level="INFO" doc:name="Logger" doc:id="097d4666-6b5a-4def-9331-e67539b16408" />
+	</flow>
+	<flow name="salesforceFlow10" doc:id="63a26406-dc72-4060-a809-24172f155f0a" >
+		<salesforce:subscribe-channel-listener doc:name="Subscribe channel listener" doc:id="e657b896-1c5a-458f-aaa3-8b616d268202" config-ref="Salesforce_Config" streamingChannel="/u/channelfrompost"/>
+		<logger level="INFO" doc:name="Logger" doc:id="b7d3e2ef-d4e6-45d6-8b98-e59d8d13d9b4" message="#[payload]"/>
+	</flow>
+</mule>
